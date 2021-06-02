@@ -1,0 +1,52 @@
+version: '3.5'
+
+services:
+    #######################################
+    # Kong database migration
+    #######################################
+    kong-migration:
+        container_name: kong-migration
+        image: kong:latest
+        networks:
+        - kong-net
+        env_file:
+        - "./env/kong.env"
+        command: kong migrations bootstrap
+        restart: on-failure
+
+    ######################################
+    # Kong: The API Gateway
+    ######################################
+    kong:
+        container_name: kong
+        image: kong:latest
+        networks:
+        - kong-net
+        depends_on:
+        - kong-migration
+        env_file:
+        - "./env/kong.env"
+        expose:
+        - 8000
+        - 8001
+        - 8443
+        - 8444
+        ports:
+         - "4050:8000"
+         - "4052:8443"
+        healthcheck:
+            #test: ["CMD-SHELL", "curl -I -s -L http://127.0.0.1:8000 || exit 1"]
+            test: ["CMD", "curl", "-f", "http://kong:8001"]
+            interval: 5s
+            timeout: 2s
+            retries: 10
+        restart: unless-stopped
+
+networks:
+        kong-net:
+            name: kong-network
+            ipam:
+                driver: default
+                config:
+                    - subnet: "172.16.238.0/24"
+                    - subnet: "2001:3984:3989::/64"
